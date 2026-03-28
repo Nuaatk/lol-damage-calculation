@@ -1,4 +1,6 @@
 import time
+import sys
+import json
 from lcu_api import LCUAPI
 from state_monitor import StateMonitor
 from champ_select_parser import ChampSelectParser
@@ -7,12 +9,51 @@ from damage_calculator import DamageCalculator
 from result_display import ResultDisplay
 
 class HextechDamageCalculator:
-    def __init__(self):
+    def __init__(self, damage_adjustments=None):
         self.lcu_api = None
         self.state_monitor = None
         self.team_formation = None
         self.players_info = None
         self.running = True
+        self.damage_adjustments = damage_adjustments if damage_adjustments else {}
+        
+        if not self.damage_adjustments:
+            self._get_damage_adjustments()
+    
+    def _get_damage_adjustments(self):
+        """获取特殊用户的伤害调整系数"""
+        print("=== 伤害调整设置 ===")
+        print("请输入需要调整伤害的用户及其调整系数（格式：用户名 系数，如：满船星河 1.1）")
+        print("输入完成后请输入 'done' 结束")
+        
+        while True:
+            try:
+                user_input = input("请输入: ")
+                if user_input.strip().lower() == 'done':
+                    break
+                
+                parts = user_input.split()
+                if len(parts) == 2:
+                    username = parts[0]
+                    try:
+                        factor = float(parts[1])
+                        self.damage_adjustments[username] = factor
+                        print(f"已添加调整: {username} × {factor}")
+                    except ValueError:
+                        print("错误：系数必须是数字，请重新输入")
+                else:
+                    print("错误：输入格式不正确，请按照 '用户名 系数' 的格式输入")
+            except EOFError:
+                # 处理非交互式环境（如命令行重定向）
+                print("\n检测到非交互式环境，跳过伤害调整设置")
+                break
+        
+        if self.damage_adjustments:
+            print("\n伤害调整设置完成：")
+            for username, factor in self.damage_adjustments.items():
+                print(f"{username}: × {factor}")
+        else:
+            print("\n未设置任何伤害调整")
     
     def start(self):
         """启动程序"""
@@ -113,17 +154,52 @@ class HextechDamageCalculator:
             # 显示玩家伤害数据
             ResultDisplay.display_player_damage(players_damage)
             
-            # 计算队伍伤害
-            team_damage = DamageCalculator.calculate_team_damage(self.team_formation, players_damage)
+            # 计算队伍伤害（应用伤害调整）
+            team_damage, adjusted_players = DamageCalculator.calculate_team_damage(self.team_formation, players_damage, self.damage_adjustments)
             
             # 排名队伍
             ranks = DamageCalculator.rank_teams(team_damage)
             
             # 显示结果
-            ResultDisplay.display_damage_results(team_damage, ranks)
+            ResultDisplay.display_damage_results(team_damage, ranks, self.team_formation, adjusted_players)
             
             print("\n计算完成！")
 
+def parse_args():
+    """解析命令行参数"""
+    damage_adjustments = {}
+    
+    # 检查是否有 --adjust 参数
+    i = 1
+    while i < len(sys.argv):
+        if sys.argv[i] == '--adjust' and i + 1 < len(sys.argv):
+            # 格式: --adjust "用户名:系数,用户名:系数"
+            adjust_str = sys.argv[i + 1]
+            pairs = adjust_str.split(',')
+            for pair in pairs:
+                parts = pair.split(':')
+                if len(parts) == 2:
+                    username = parts[0].strip()
+                    try:
+                        factor = float(parts[1].strip())
+                        damage_adjustments[username] = factor
+                    except ValueError:
+                        print(f"警告: 无法解析系数 '{parts[1]}'，跳过")
+            i += 2
+        else:
+            i += 1
+    
+    return damage_adjustments
+
 if __name__ == "__main__":
-    calculator = HextechDamageCalculator()
+    # 解析命令行参数
+    damage_adjustments = parse_args()
+    
+    if damage_adjustments:
+        print("从命令行参数加载伤害调整：")
+        for username, factor in damage_adjustments.items():
+            print(f"{username}: × {factor}")
+        print()
+    
+    calculator = HextechDamageCalculator(damage_adjustments)
     calculator.start()

@@ -118,7 +118,41 @@ class LCUAPI:
     
     def get_match_history(self, count=1):
         """获取匹配历史"""
-        return self.get(f"/lol-match-history/v1/products/lol/{self.get_summoner_id()}/matches?count={count}")
+        # 尝试使用不同的端点格式
+        try:
+            # 尝试使用当前召唤师的比赛历史端点（参考代码中的端点）
+            endpoints = [
+                f"/lol-match-history/v1/products/lol/current-summoner/matches",
+                f"/lol-match-history/v1/products/lol/current-summoner/matches?count={count}"
+            ]
+            
+            for endpoint in endpoints:
+                try:
+                    result = self.get(endpoint)
+                    if result:
+                        return result
+                except Exception as e:
+                    print(f"尝试端点 {endpoint} 失败: {e}")
+            
+            # 如果上面的端点失败，尝试使用召唤师ID的端点
+            summoner_id = self.get_summoner_id()
+            if summoner_id:
+                endpoints = [
+                    f"/lol-match-history/v1/products/lol/{summoner_id}/matches?count={count}",
+                    f"/lol-match-history/v2/matches?accountId={summoner_id}&count={count}",
+                    f"/lol-match-history/v1/matches?accountId={summoner_id}&count={count}"
+                ]
+                
+                for endpoint in endpoints:
+                    try:
+                        result = self.get(endpoint)
+                        if result:
+                            return result
+                    except Exception as e:
+                        print(f"尝试端点 {endpoint} 失败: {e}")
+        except Exception as e:
+            print(f"获取匹配历史失败: {e}")
+        return None
     
     def get_summoner_id(self):
         """获取当前召唤师ID"""
@@ -127,7 +161,18 @@ class LCUAPI:
     
     def get_match_details(self, match_id):
         """获取匹配详情"""
-        return self.get(f"/lol-match-history/v1/matches/{match_id}")
+        # 尝试使用不同的端点格式
+        try:
+            # 尝试使用 /lol-match-history/v1/games/{game_id} 端点
+            return self.get(f"/lol-match-history/v1/games/{match_id}")
+        except Exception as e:
+            print(f"获取匹配详情失败: {e}")
+            # 尝试使用原来的端点
+            try:
+                return self.get(f"/lol-match-history/v1/matches/{match_id}")
+            except Exception as e2:
+                print(f"获取匹配详情失败 (备用): {e2}")
+        return None
     
     def get_gameflow_session(self):
         """获取游戏流程会话信息"""

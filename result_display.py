@@ -13,21 +13,41 @@ class ResultDisplay:
         print("\n=== 队伍组成 ===")
         for team_key, players in team_formation.items():
             team_name = DamageCalculator.get_team_display_name(team_key)
-            player_names = [p['summoner_name'] if p['summoner_name'] else '未知玩家' for p in players]
-            print(f"{team_name}: {', '.join(player_names)}")
+            player_info = []
+            for player in players:
+                summoner_name = player['summoner_name'] if player['summoner_name'] else '未知玩家'
+                player_info.append(f"{player['floor']}楼: {summoner_name}")
+            print(f"{team_name}: {', '.join(player_info)}")
     
     @staticmethod
-    def display_damage_results(team_damage, ranks):
+    def display_damage_results(team_damage, ranks, team_formation, adjusted_players=None):
         """显示伤害计算结果"""
         print("\n=== 伤害计算结果 ===")
         for team_key, damage in team_damage.items():
             team_name = DamageCalculator.get_team_display_name(team_key)
             print(f"{team_name}: {damage} 伤害")
         
+        # 显示伤害调整信息
+        if adjusted_players and len(adjusted_players) > 0:
+            print("\n=== 伤害调整信息 ===")
+            for player_name, adjustment in adjusted_players.items():
+                print(f"{player_name}: {adjustment['original_damage']} × {adjustment['factor']} = {adjustment['adjusted_damage']}")
+        
         print("\n=== 排名 ===")
         for rank_info in ranks:
-            team_name = DamageCalculator.get_team_display_name(rank_info['team'])
-            print(f"第 {rank_info['rank']} 名: {team_name} - {rank_info['damage']} 伤害")
+            team_key = rank_info['team']
+            team_name = DamageCalculator.get_team_display_name(team_key)
+            # 获取队伍中的玩家信息
+            players = team_formation.get(team_key, [])
+            player_names = []
+            for player in players:
+                summoner_name = player['summoner_name'] if player['summoner_name'] else '未知玩家'
+                player_names.append(f"{player['floor']}楼{summoner_name}")
+            
+            if player_names:
+                print(f"第 {rank_info['rank']} 名: {team_name} ({', '.join(player_names)}) - {rank_info['damage']} 伤害")
+            else:
+                print(f"第 {rank_info['rank']} 名: {team_name} - {rank_info['damage']} 伤害")
     
     @staticmethod
     def display_player_damage(players_damage):
